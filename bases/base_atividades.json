@@ -1,0 +1,107 @@
+[[
+{
+  "jogadores": [
+    {
+      "nome": "Neymar Jr.",
+      "time": "Santos",
+      "idade": 34
+    },
+    {
+      "nome": "Vinicius Junior",
+      "time": "Real Madrid",
+      "idade": 26
+    },
+    {
+      "nome": "Kylian Mbappe",
+      "time": "Real Madrid",
+      "idade": 27
+    },
+    {
+      "nome": "Jude Bellingham",
+      "time": "Real Madrid",
+      "idade": 23
+    },
+    {
+      "nome": "Lamine Yamal",
+      "time": "Barcelona",
+      "idade": 19
+    },
+    {
+      "nome": "Raphinha",
+      "time": "Barcelona",
+      "idade": 29
+    },
+    {
+      "nome": "Erling Haaland",
+      "time": "Manchester City",
+      "idade": 26
+    },
+    {
+      "nome": "Phil Foden",
+      "time": "Manchester City",
+      "idade": 26
+    },
+    {
+      "nome": "Mohamed Salah",
+      "time": "Liverpool",
+      "idade": 34
+    },
+    {
+      "nome": "Harry Kane",
+      "time": "Bayern de Munique",
+      "idade": 33
+    },
+    {
+      "nome": "Jamal Musiala",
+      "time": "Bayern de Munique",
+      "idade": 23
+    },
+    {
+      "nome": "Cristiano Ronaldo",
+      "time": "Al-Nassr",
+      "idade": 41
+    },
+    {
+      "nome": "Lionel Messi",
+      "time": "Inter Miami",
+      "idade": 39
+    },
+    {
+      "nome": "Estevao",
+      "time": "Chelsea",
+      "idade": 19
+    },
+    {
+      "nome": "Bruno Guimaraes",
+      "time": "Newcastle United",
+      "idade": 28
+    },
+    {
+      "nome": "Rodrygo",
+      "time": "Real Madrid",
+      "idade": 25
+    },
+    {
+      "nome": "Endrick",
+      "time": "Real Madrid",
+      "idade": 20
+    },
+    {
+      "nome": "Lautaro Martinez",
+      "time": "Inter de Milao",
+      "idade": 29
+    },
+    {
+      "nome": "Federico Valverde",
+      "time": "Real Madrid",
+      "idade": 28
+    },
+    {
+      "nome": "Alisson Becker",
+      "time": "Liverpool",
+      "idade": 34
+    }
+  ]
+}
+]
+]
