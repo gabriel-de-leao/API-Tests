@@ -41,6 +41,27 @@ function ehLista($dados)
     return true;
 }
 
+function extrairListaJogadores($dados)
+{
+    // Desembrulha casos como [[ {...} ]] ou [ {"jogadores": [...]} ]
+    while (
+        is_array($dados)
+        && ehLista($dados)
+        && count($dados) === 1
+        && is_array($dados[0])
+        && (ehLista($dados[0]) || isset($dados[0]['jogadores']))
+    ) {
+        $dados = $dados[0];
+    }
+
+    // Desembrulha {"jogadores": [...]}
+    if (is_array($dados) && !ehLista($dados) && isset($dados['jogadores']) && is_array($dados['jogadores'])) {
+        $dados = $dados['jogadores'];
+    }
+
+    return $dados;
+}
+
 $arquivoPadrao = __DIR__ . '/base_atividades.json';
 $diretorioBases = __DIR__ . '/bases';
 
@@ -210,7 +231,7 @@ function validarUsuario($dados, $parcial = false)
 function validarBaseImportada($dados)
 {
     if (!is_array($dados) || !ehLista($dados)) {
-        return ['base' => 'O JSON deve ter um array de jogadores na raiz.'];
+        return ['base' => 'O JSON deve ter um array de jogadores na raiz (ou dentro da chave "jogadores").'];
     }
 
     $erros = [];
@@ -339,6 +360,8 @@ if ($action === 'upload-base') {
     if (json_last_error() !== JSON_ERROR_NONE) {
         erro('O arquivo enviado não contém JSON válido.', 422);
     }
+
+    $dados = extrairListaJogadores($dados);
 
     $erros = validarBaseImportada($dados);
 
