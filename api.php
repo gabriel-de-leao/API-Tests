@@ -13,8 +13,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 const MAX_BASES_UPLOAD = 5;
 const MAX_UPLOAD_BYTES = 2097152; // 2 MB
 
-// Mantém o projeto funcional mesmo sem a extensão mbstring e em versões
-// do PHP anteriores à introdução de array_is_list().
 function textoTamanho($valor)
 {
     $valor = (string) $valor;
@@ -43,7 +41,7 @@ function ehLista($dados)
     return true;
 }
 
-$arquivoPadrao = __DIR__ . '/dados.json';
+$arquivoPadrao = __DIR__ . '/base_atividades.json';
 $diretorioBases = __DIR__ . '/bases';
 
 if (!is_dir($diretorioBases) && !mkdir($diretorioBases, 0775, true) && !is_dir($diretorioBases)) {
@@ -81,9 +79,9 @@ function listarBases($diretorioBases)
 {
     $bases = [
         [
-            'id' => 'dados.json',
+            'id' => 'base_atividades.json',
             'nome' => 'Base padrão',
-            'arquivo' => 'dados.json',
+            'arquivo' => 'base_atividades.json',
             'padrao' => true
         ]
     ];
@@ -106,7 +104,7 @@ function listarBases($diretorioBases)
 
 function caminhoBaseSelecionada($base, $arquivoPadrao, $diretorioBases)
 {
-    if ($base === null || $base === '' || $base === 'dados.json') {
+    if ($base === null || $base === '' || $base === 'base_atividades.json') {
         return $arquivoPadrao;
     }
 
@@ -184,13 +182,13 @@ function validarUsuario($dados, $parcial = false)
         }
     }
 
-    if (!$parcial || array_key_exists('email', $dados)) {
-        $email = trim((string) ($dados['email'] ?? ''));
+    if (!$parcial || array_key_exists('time', $dados)) {
+        $time = trim((string) ($dados['time'] ?? ''));
 
-        if ($email === '') {
-            $erros['email'] = 'O e-mail é obrigatório.';
-        } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            $erros['email'] = 'Informe um e-mail válido.';
+        if ($time === '') {
+            $erros['time'] = 'O time é obrigatório.';
+        } elseif (textoTamanho($time) > 100) {
+            $erros['time'] = 'O time deve ter no máximo 100 caracteres.';
         }
     }
 
@@ -212,12 +210,11 @@ function validarUsuario($dados, $parcial = false)
 function validarBaseImportada($dados)
 {
     if (!is_array($dados) || !ehLista($dados)) {
-        return ['base' => 'O JSON deve ter um array de usuários na raiz.'];
+        return ['base' => 'O JSON deve ter um array de jogadores na raiz.'];
     }
 
     $erros = [];
     $ids = [];
-    $emails = [];
 
     foreach ($dados as $indice => $usuario) {
         if (!is_array($usuario)) {
@@ -241,14 +238,6 @@ function validarBaseImportada($dados)
             $erros["registro_$indice.$campo"] = $mensagem;
         }
 
-        if (isset($usuario['email']) && filter_var($usuario['email'], FILTER_VALIDATE_EMAIL)) {
-            $email = strtolower(trim($usuario['email']));
-            if (isset($emails[$email])) {
-                $erros["registro_$indice.email"] = 'O e-mail está duplicado na base.';
-            }
-            $emails[$email] = true;
-        }
-
         if (count($erros) >= 20) {
             $erros['base'] = 'A validação foi interrompida após encontrar muitos erros.';
             break;
@@ -264,25 +253,10 @@ function normalizarBaseImportada($dados)
         return [
             'id' => (int) $usuario['id'],
             'nome' => trim($usuario['nome']),
-            'email' => trim($usuario['email']),
+            'time' => trim($usuario['time']),
             'idade' => (int) $usuario['idade']
         ];
     }, $dados);
-}
-
-function emailEmUso($usuarios, $email, $ignorarId = null)
-{
-    foreach ($usuarios as $usuario) {
-        if (
-            isset($usuario['email'], $usuario['id']) &&
-            strtolower($usuario['email']) === strtolower($email) &&
-            ($ignorarId === null || (int) $usuario['id'] !== $ignorarId)
-        ) {
-            return true;
-        }
-    }
-
-    return false;
 }
 
 $metodo = $_SERVER['REQUEST_METHOD'];
@@ -356,7 +330,6 @@ if ($action === 'upload-base') {
         erro('Não foi possível ler o arquivo temporário enviado.', 400);
     }
 
-    // Remove BOM UTF-8, comum em JSONs exportados por editores/planilhas.
     if (substr($conteudo, 0, 3) === "\xEF\xBB\xBF") {
         $conteudo = substr($conteudo, 3);
     }
@@ -374,7 +347,6 @@ if ($action === 'upload-base') {
     }
 
     $dadosNormalizados = normalizarBaseImportada($dados);
-
     $jsonNormalizado = json_encode($dadosNormalizados, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
 
     if ($jsonNormalizado === false) {
@@ -406,7 +378,7 @@ if ($action === 'delete-base') {
 
     $base = $_GET['base'] ?? '';
 
-    if ($base === '' || $base === 'dados.json') {
+    if ($base === '' || $base === 'base_atividades.json') {
         erro('A base padrão não pode ser removida.', 400);
     }
 
@@ -429,7 +401,7 @@ if ($action === 'delete-base') {
     responder(['message' => 'Base removida com sucesso.']);
 }
 
-$baseSelecionada = $_GET['base'] ?? 'dados.json';
+$baseSelecionada = $_GET['base'] ?? 'base_atividades.json';
 $arquivo = caminhoBaseSelecionada($baseSelecionada, $arquivoPadrao, $diretorioBases);
 $usuarios = carregarUsuarios($arquivo);
 $id = isset($_GET['id']) ? (int) $_GET['id'] : null;
@@ -445,24 +417,22 @@ if ($metodo === 'GET') {
             }
         }
 
-        erro('Usuário não encontrado', 404);
+        erro('Jogador não encontrado', 404);
     }
 
     $resultado = $usuarios;
 
     if (isset($_GET['nome']) && trim($_GET['nome']) !== '') {
         $nome = textoMinusculo(trim($_GET['nome']));
-
         $resultado = array_filter($resultado, function ($usuario) use ($nome) {
             return isset($usuario['nome']) && str_contains(textoMinusculo($usuario['nome']), $nome);
         });
     }
 
-    if (isset($_GET['email']) && trim($_GET['email']) !== '') {
-        $email = textoMinusculo(trim($_GET['email']));
-
-        $resultado = array_filter($resultado, function ($usuario) use ($email) {
-            return isset($usuario['email']) && str_contains(textoMinusculo($usuario['email']), $email);
+    if (isset($_GET['time']) && trim($_GET['time']) !== '') {
+        $time = textoMinusculo(trim($_GET['time']));
+        $resultado = array_filter($resultado, function ($usuario) use ($time) {
+            return isset($usuario['time']) && str_contains(textoMinusculo($usuario['time']), $time);
         });
     }
 
@@ -470,20 +440,18 @@ if ($metodo === 'GET') {
         if (filter_var($_GET['idade'], FILTER_VALIDATE_INT) === false) {
             erroValidacao(['idade' => 'O filtro de idade deve ser um número inteiro.']);
         }
-
         $idade = (int) $_GET['idade'];
-
         $resultado = array_filter($resultado, function ($usuario) use ($idade) {
             return isset($usuario['idade']) && (int) $usuario['idade'] === $idade;
         });
     }
 
-    $camposOrdenacao = ['id', 'nome', 'email', 'idade'];
+    $camposOrdenacao = ['id', 'nome', 'time', 'idade'];
     $sort = $_GET['sort'] ?? 'id';
     $order = strtolower($_GET['order'] ?? 'asc');
 
     if (!in_array($sort, $camposOrdenacao, true)) {
-        erroValidacao(['sort' => 'Campo de ordenação inválido. Use id, nome, email ou idade.']);
+        erroValidacao(['sort' => 'Campo de ordenação inválido. Use id, nome, time ou idade.']);
     }
 
     if (!in_array($order, ['asc', 'desc'], true)) {
@@ -508,7 +476,7 @@ if ($metodo === 'GET') {
         'total' => count($resultado),
         'filtros' => [
             'nome' => $_GET['nome'] ?? null,
-            'email' => $_GET['email'] ?? null,
+            'time' => $_GET['time'] ?? null,
             'idade' => isset($_GET['idade']) && $_GET['idade'] !== '' ? (int) $_GET['idade'] : null
         ],
         'ordenacao' => [
@@ -527,12 +495,6 @@ if ($metodo === 'POST') {
         erroValidacao($erros);
     }
 
-    $email = trim($dados['email']);
-
-    if (emailEmUso($usuarios, $email)) {
-        erroValidacao(['email' => 'Este e-mail já está cadastrado.']);
-    }
-
     $ids = array_map(function ($usuario) {
         return (int) ($usuario['id'] ?? 0);
     }, $usuarios);
@@ -541,7 +503,7 @@ if ($metodo === 'POST') {
     $novoUsuario = [
         'id' => $novoId,
         'nome' => trim($dados['nome']),
-        'email' => $email,
+        'time' => trim($dados['time']),
         'idade' => (int) $dados['idade']
     ];
 
@@ -566,18 +528,12 @@ if ($metodo === 'PUT') {
         erroValidacao($erros);
     }
 
-    $email = trim($dados['email']);
-
-    if (emailEmUso($usuarios, $email, $id)) {
-        erroValidacao(['email' => 'Este e-mail já está cadastrado.']);
-    }
-
     foreach ($usuarios as $indice => $usuario) {
         if ((int) $usuario['id'] === $id) {
             $usuarios[$indice] = [
                 'id' => $id,
                 'nome' => trim($dados['nome']),
-                'email' => $email,
+                'time' => trim($dados['time']),
                 'idade' => (int) $dados['idade']
             ];
 
@@ -590,7 +546,7 @@ if ($metodo === 'PUT') {
         }
     }
 
-    erro('Usuário não encontrado', 404);
+    erro('Jogador não encontrado', 404);
 }
 
 if ($metodo === 'PATCH') {
@@ -610,21 +566,14 @@ if ($metodo === 'PATCH') {
         erroValidacao($erros);
     }
 
-    if (
-        array_key_exists('email', $dados) &&
-        emailEmUso($usuarios, trim($dados['email']), $id)
-    ) {
-        erroValidacao(['email' => 'Este e-mail já está cadastrado.']);
-    }
-
     foreach ($usuarios as $indice => $usuario) {
         if ((int) $usuario['id'] === $id) {
             if (array_key_exists('nome', $dados)) {
                 $usuarios[$indice]['nome'] = trim($dados['nome']);
             }
 
-            if (array_key_exists('email', $dados)) {
-                $usuarios[$indice]['email'] = trim($dados['email']);
+            if (array_key_exists('time', $dados)) {
+                $usuarios[$indice]['time'] = trim($dados['time']);
             }
 
             if (array_key_exists('idade', $dados)) {
@@ -640,7 +589,7 @@ if ($metodo === 'PATCH') {
         }
     }
 
-    erro('Usuário não encontrado', 404);
+    erro('Jogador não encontrado', 404);
 }
 
 if ($metodo === 'DELETE') {
@@ -656,13 +605,13 @@ if ($metodo === 'DELETE') {
 
             responder([
                 'base' => $baseSelecionada,
-                'message' => 'Usuário excluído',
+                'message' => 'Jogador excluído',
                 'dados' => $usuarioExcluido
             ]);
         }
     }
 
-    erro('Usuário não encontrado', 404);
+    erro('Jogador não encontrado', 404);
 }
 
 erro('Método não permitido', 405);
