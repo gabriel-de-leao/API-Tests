@@ -532,6 +532,12 @@
         outline: 2px solid var(--gold);
         outline-offset: 4px;
       }
+      #searchform:has(#search:focus-visible) {
+        outline: 2px solid var(--gold);
+      }
+      #search:focus-visible {
+        outline: none;
+      }
       @media (max-width: 800px) {
         header {
           padding: 0 22px;
@@ -672,6 +678,7 @@
         text-shadow: 0 4px 35px #061a17;
       }
       .hero h1 em {
+        font-weight: 800;
         font-style: normal;
       }
       .hero p {
@@ -1128,21 +1135,6 @@
               placeholder="Conte a história, conquistas ou curiosidades..."
             ></textarea>
           </label>
-        </div>
-        <div id="update-fields" hidden>
-          <p class="muted">
-            Escolha apenas um dado para modificar. Os demais serão preservados.
-          </p>
-          <label
-            >Campo<select id="field">
-              <option value="nome">Nome</option>
-              <option value="area">Categoria</option>
-              <option value="pais">País / localização</option>
-              <option value="profissao">Descrição curta</option>
-              <option value="foto">Foto (URL)</option>
-              <option value="sobre">Sobre</option>
-            </select></label
-          ><label>Novo valor<input id="value" maxlength="700" /></label>
         </div>
         <p id="form-error" role="alert"></p>
         <button class="gold" id="save">Salvar registro</button>
@@ -2759,6 +2751,7 @@
           "https://crudcrud.com/api/551df41a94c046a9ac9dfc84ef2f4f12",
         records = [],
         editing = null,
+        initialEditValues,
         deleting = null,
         loadSequence = 0;
       const esc = (v) =>
@@ -2846,7 +2839,7 @@
                     .slice(0, 2)
                     .map((n) => n[0])
                     .join(""),
-                )}</span>${photo ? `<img src="${esc(photo)}" alt="${esc(r.nome)}" loading="lazy" referrerpolicy="no-referrer">` : ""}<span class="tag">${esc(r.area || "Registro")}</span></div><div class="body"><h3>${esc(r.nome || "Sem nome")}</h3><div class="meta">${esc(r.profissao)}${r.pais ? " · " + esc(r.pais) : ""}</div><p>${esc(r.sobre || "Mais uma história dentro de campo.")}</p><div class="actions"><button data-edit="${esc(r._id)}">↗ Modificar dado <small>PUT</small></button><button data-delete="${esc(r._id)}">Remover <small>DELETE</small></button></div></div></article>`;
+                )}</span>${photo ? `<img src="${esc(photo)}" alt="${esc(r.nome)}" loading="lazy" referrerpolicy="no-referrer">` : ""}<span class="tag">${esc(r.area || "Registro")}</span></div><div class="body"><h3>${esc(r.nome || "Sem nome")}</h3><div class="meta">${esc(r.profissao)}${r.pais ? " · " + esc(r.pais) : ""}</div><p>${esc(r.sobre || "Mais uma história dentro de campo.")}</p><div class="actions"><button data-edit="${esc(r._id)}">↗ Mudar dados <small>PUT</small></button><button data-delete="${esc(r._id)}">Remover <small>DELETE</small></button></div></div></article>`;
               })
               .join("")
           : `<div class="empty"><div class="symbol">✧</div><h3>${records.length ? "Nenhum resultado no placar." : "Seu acervo está no aquecimento."}</h3><p>${records.length ? "Tente outro nome ou categoria." : "Cadastre um jogador, clube, seleção, estádio ou competição."}</p>${records.length ? "" : '<button class="gold" id="empty-add">＋ Adicionar ao acervo</button>'}</div>`;
@@ -2883,13 +2876,6 @@
       function openCreate() {
         editing = null;
         $("#editform").reset();
-        $("#create-fields").hidden = false;
-        $("#update-fields").hidden = true;
-        $("#create-fields")
-          .querySelectorAll("input, select, textarea")
-          .forEach((i) => (i.disabled = false));
-        $("#value").required = false;
-        $("#value").disabled = true;
         $("#modal-title").textContent = "Adicionar ao acervo";
         $("#modal-label").textContent = "NOVO REGISTRO / POST";
         $("#save").textContent = "Salvar registro";
@@ -2899,27 +2885,16 @@
       function openEdit(id) {
         editing = records.find((r) => r._id === id);
         if (!editing) return;
-        $("#create-fields").hidden = true;
-        $("#update-fields").hidden = false;
-        $("#create-fields")
-          .querySelectorAll("input, select, textarea")
-          .forEach((i) => (i.disabled = true));
-        $("#value").disabled = false;
-        $("#field").value = "nome";
-        updateValue();
-        $("#modal-title").textContent = "Modificar um dado";
-        $("#modal-label").textContent = "EDIÇÃO INDIVIDUAL / PUT";
-        $("#save").textContent = "Salvar alteração";
+        const form = $("#editform");
+        for (const field of $("#create-fields").querySelectorAll("[name]"))
+          field.value = editing[field.name] ?? "";
+        initialEditValues = Object.fromEntries(new FormData(form));
+        $("#modal-title").textContent = "Modificar registro";
+        $("#modal-label").textContent = "EDIÇÃO DE REGISTRO / PUT";
+        $("#save").textContent = "Salvar alterações";
         $("#form-error").textContent = "";
         $("#editor").showModal();
       }
-      function updateValue() {
-        const key = $("#field").value;
-        $("#value").value = editing?.[key] || "";
-        $("#value").required = !["foto", "sobre"].includes(key);
-        $("#value").type = key === "foto" ? "url" : "text";
-      }
-      $("#field").onchange = updateValue;
       $("#add").onclick = openCreate;
       $("#refresh").onclick = load;
       $("#searchform").onsubmit = (e) => {
@@ -2945,26 +2920,17 @@
         $("#form-error").textContent = "";
         try {
           if (editing) {
-            const key = $("#field").value,
-              val = $("#value").value.trim();
-            if (
-              key === "area" &&
-              ![
-                "Jogadores",
-                "Clubes",
-                "Seleções",
-                "Estádios",
-                "Competições",
-                "Outros",
-              ].includes(val)
-            )
-              throw new Error(
-                "Use uma categoria válida: Jogadores, Clubes, Seleções, Estádios, Competições ou Outros.",
-              );
-            const latest = await request("GET", editing._id);
+            const data = Object.fromEntries(new FormData(e.target));
+            const changes = {};
+            for (const [key, value] of Object.entries(data)) {
+              if (value !== initialEditValues[key]) changes[key] = value.trim();
+            }
+            if (["nome", "pais", "profissao"].some((key) => changes[key] === ""))
+              throw new Error("Preencha nome, localização e descrição.");
+            const id = editing._id;
+            const latest = await request("GET", id);
             const { _id, ...body } = latest;
-            body[key] = val;
-            await request("PUT", editing._id, body);
+            await request("PUT", id, { ...body, ...changes });
           } else {
             const data = Object.fromEntries(new FormData(e.target));
             Object.keys(data).forEach((k) => (data[k] = data[k].trim()));
@@ -2977,7 +2943,7 @@
           if (!refreshed) return;
           status(
             editing
-              ? "Um dado modificado com sucesso · PUT."
+              ? "Registro modificado com sucesso · PUT."
               : "Registro criado com sucesso · POST.",
           );
         } catch (e) {
